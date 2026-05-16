@@ -3,7 +3,7 @@
   "name": "io.github.Spacemandomains/mcp-registry-search",
   "title": "MCP Registry Search",
   "description": "Search and browse every MCP server in the Model Context Protocol registry.",
-  "version": "1.0.0",
+  "version": "1.0.6",
   "repository": {
     "url": "https://github.com/Spacemandomains/mcp-registry-search",
     "source": "github"
@@ -12,6 +12,43 @@
     {
       "type": "streamable-http",
       "url": "https://mcpregistrysearchwilfredleejr.vercel.app/api/mcp"
+    }
+  ],
+  "tools": [
+    {
+      "name": "list_mcp_servers",
+      "description": "Browse all MCP servers in the official MCP registry with pagination. Supports latest_only (boolean) and limit (1-100, default 20).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "cursor": { "type": "string", "description": "Pagination cursor from previous response" },
+          "latest_only": { "type": "boolean", "description": "Only return latest version of each server", "default": true },
+          "limit": { "type": "number", "description": "Number of servers per page (1-100)", "default": 20 }
+        }
+      }
+    },
+    {
+      "name": "get_mcp_server_details",
+      "description": "Get full metadata, endpoints, auth requirements, and tools for any MCP server by its reverse-DNS registry name.",
+      "inputSchema": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string", "description": "Reverse-DNS registry name (e.g. io.github.Spacemandomains/hawaii-conditions)" }
+        }
+      }
+    },
+    {
+      "name": "search_mcp_registry",
+      "description": "Search MCP servers by plain name or keyword. Returns matching servers from the official registry without needing to know the exact reverse-DNS identifier.",
+      "inputSchema": {
+        "type": "object",
+        "required": ["query"],
+        "properties": {
+          "query": { "type": "string", "description": "Plain text search query (e.g. hawaii, crypto trading, job search)" },
+          "limit": { "type": "number", "description": "Max number of results to return (default 10, max 50)", "default": 10 }
+        }
+      }
     }
   ]
 }
