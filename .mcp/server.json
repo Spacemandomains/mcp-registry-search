@@ -1,5 +1,5 @@
 {
-  "$schema": "https://registry.modelcontextprotocol.io/schema/v0/server.json",
+  "$schema": "https://registry.modelcontextprotocol.io/schema/v0/2025-10-17/server.json",
   "name": "io.github.Spacemandomains/mcp-registry-search",
   "title": "MCP Registry Search",
   "description": "Search and browse every MCP server in the Model Context Protocol registry.",
