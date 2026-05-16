@@ -111,7 +111,24 @@ async function handleMcpRequest(req: NextRequest): Promise<Response> {
 
   await server.connect(transport);
 
-  const response = await transport.handleRequest(req);
+  // Normalize Accept header — the MCP transport requires both application/json
+  // and text/event-stream but some clients (including Claude.ai's connector)
+  // omit text/event-stream, causing the transport to return 406.
+  const accept = req.headers.get("accept") ?? "";
+  let normalizedReq: Request = req;
+  if (!accept.includes("text/event-stream") || !accept.includes("application/json")) {
+    const headers = new Headers(req.headers);
+    headers.set("accept", "application/json, text/event-stream");
+    normalizedReq = new Request(req.url, {
+      method: req.method,
+      headers,
+      body: req.body,
+      // @ts-expect-error duplex is required for streaming bodies in Node fetch
+      duplex: "half",
+    });
+  }
+
+  const response = await transport.handleRequest(normalizedReq);
 
   await server.close();
 
