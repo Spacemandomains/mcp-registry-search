@@ -121,3 +121,14 @@ async function handleMcpRequest(req: NextRequest): Promise<Response> {
 export const POST = handleMcpRequest;
 export const GET = handleMcpRequest;
 export const DELETE = handleMcpRequest;
+
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Accept, Authorization, Mcp-Session-Id",
+    },
+  });
+}
