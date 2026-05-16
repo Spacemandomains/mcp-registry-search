@@ -25,3 +25,6 @@ yarn-error.log*
 
 # vercel
 .vercel
+
+# TypeScript
+tsconfig.tsbuildinfo
