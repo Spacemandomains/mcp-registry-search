@@ -2,6 +2,15 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@modelcontextprotocol/sdk"],
+  async redirects() {
+    return [
+      {
+        source: "/favicon.ico",
+        destination: "/icon",
+        permanent: false,
+      },
+    ];
+  },
   async headers() {
     return [
       {
