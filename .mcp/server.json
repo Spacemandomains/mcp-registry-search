@@ -3,7 +3,7 @@
   "name": "io.github.Spacemandomains/mcp-registry-search",
   "title": "MCP Registry Search",
   "description": "Search and browse every MCP server in the Model Context Protocol registry.",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "repository": {
     "url": "https://github.com/Spacemandomains/mcp-registry-search",
     "source": "github"
