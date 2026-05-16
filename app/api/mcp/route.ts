@@ -18,25 +18,20 @@ const TOOLS = [
   {
     name: "search_mcp_registry",
     description:
-      "Search the Model Context Protocol registry by natural language query. Returns matching MCP servers with their name, description, endpoint, transport, repository, and version.",
+      "Find servers by keyword or name (e.g. 'weather', 'github', 'database'). Returns matching servers with their endpoint URL, transport type, and description.",
     inputSchema: {
       type: "object",
       properties: {
         query: {
           type: "string",
-          description: "Natural language search query",
+          description: "Keyword or name to search for (e.g. 'weather', 'stripe', 'postgres')",
         },
         limit: {
           type: "integer",
           minimum: 1,
-          maximum: 100,
+          maximum: 50,
           default: 10,
-          description: "Maximum number of results to return (1-100, default 10)",
-        },
-        latest_only: {
-          type: "boolean",
-          default: true,
-          description: "Only return the latest version of each server (default true)",
+          description: "Maximum number of results (default 10, max 50)",
         },
       },
       required: ["query"],
@@ -104,8 +99,8 @@ async function handleMcpRequest(req: NextRequest): Promise<Response> {
       if (name === "search_mcp_registry") {
         const results = await searchRegistry(
           String(a.query ?? ""),
-          typeof a.limit === "number" ? a.limit : 10,
-          typeof a.latest_only === "boolean" ? a.latest_only : true
+          typeof a.limit === "number" ? Math.min(a.limit, 50) : 10,
+          true
         );
         text = JSON.stringify(results, null, 2);
       } else if (name === "get_mcp_server_details") {
