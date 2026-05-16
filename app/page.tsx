@@ -120,9 +120,6 @@ export default function Home() {
         .code-dots { display: flex; gap: 6px; }
         .code-dot { width: 10px; height: 10px; border-radius: 50%; }
         pre { padding: 20px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 13px; line-height: 1.7; color: #94a3b8; overflow-x: auto; }
-        .token-key { color: #7dd3fc; }
-        .token-str { color: #86efac; }
-        .token-punc { color: #475569; }
 
         /* Footer */
         footer { border-top: 1px solid #1e1e2e; padding: 40px 0; }
