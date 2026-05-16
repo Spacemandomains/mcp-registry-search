@@ -128,11 +128,7 @@ async function handleMcpRequest(req: NextRequest): Promise<Response> {
     });
   }
 
-  const response = await transport.handleRequest(normalizedReq);
-
-  await server.close();
-
-  return response;
+  return transport.handleRequest(normalizedReq);
 }
 
 export const POST = handleMcpRequest;
