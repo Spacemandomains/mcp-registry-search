@@ -1,0 +1,17 @@
+{
+  "$schema": "https://registry.modelcontextprotocol.io/schema/v0/server.json",
+  "name": "io.github.Spacemandomains/mcp-registry-search",
+  "title": "MCP Registry Search",
+  "description": "Search, browse, and inspect every server in the Model Context Protocol registry. Any AI agent with this server configured can discover new MCP servers by natural language query, look up full metadata by name, or page through the full catalogue.",
+  "version": "1.0.0",
+  "repository": {
+    "url": "https://github.com/Spacemandomains/mcp-registry-search",
+    "source": "github"
+  },
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcpregistrysearchwilfredleejr.vercel.app/api/mcp"
+    }
+  ]
+}
