@@ -1,4 +1,7 @@
 const REGISTRY_BASE = "https://registry.modelcontextprotocol.io/v0";
+const MAX_PAGES = 25; // up to 2500 servers
+const PAGE_SIZE = 100;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export interface ServerSummary {
   name: string;
@@ -40,6 +43,9 @@ type RegistryItem = {
   _meta: Record<string, unknown>;
 };
 
+// Module-level cache — persists across requests on the same warm Vercel instance
+let _cache: { data: ServerSummary[]; fetchedAt: number } | null = null;
+
 function extractSummary(item: RegistryItem): ServerSummary {
   const s = item.server;
   const meta = (
@@ -61,28 +67,85 @@ function extractSummary(item: RegistryItem): ServerSummary {
   };
 }
 
+async function fetchPage(cursor?: string): Promise<{
+  items: RegistryItem[];
+  nextCursor: string | null;
+}> {
+  const params = new URLSearchParams({
+    limit: String(PAGE_SIZE),
+    latest_only: "true",
+    ...(cursor ? { cursor } : {}),
+  });
+  const res = await fetch(`${REGISTRY_BASE}/servers?${params}`, {
+    headers: { Accept: "application/json" },
+    next: { revalidate: 300 }, // Next.js edge cache — 5 min per page URL
+  });
+  if (!res.ok) throw new Error(`Registry API error: ${res.status} ${res.statusText}`);
+  const data = (await res.json()) as {
+    servers?: RegistryItem[];
+    metadata?: { nextCursor?: string };
+  };
+  return {
+    items: data.servers ?? [],
+    nextCursor: data.metadata?.nextCursor ?? null,
+  };
+}
+
+async function getAllServers(): Promise<ServerSummary[]> {
+  // Return in-memory cache if still warm
+  if (_cache && Date.now() - _cache.fetchedAt < CACHE_TTL) {
+    return _cache.data;
+  }
+
+  const all: ServerSummary[] = [];
+  let cursor: string | undefined;
+
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const { items, nextCursor } = await fetchPage(cursor);
+    all.push(...items.map(extractSummary));
+    if (!nextCursor) break;
+    cursor = nextCursor;
+  }
+
+  _cache = { data: all, fetchedAt: Date.now() };
+  return all;
+}
+
+function matchesQuery(server: ServerSummary, terms: string[]): boolean {
+  const haystack = [server.name, server.title, server.description]
+    .join(" ")
+    .toLowerCase();
+  return terms.every((term) => haystack.includes(term));
+}
+
 export async function searchRegistry(
   query: string,
   limit = 10,
   latestOnly = true
 ): Promise<ServerSummary[]> {
-  const params = new URLSearchParams({
-    q: query,
-    limit: String(Math.min(limit, 100)),
-    ...(latestOnly ? { latest_only: "true" } : {}),
-  });
-  const res = await fetch(`${REGISTRY_BASE}/servers?${params}`, {
-    headers: { Accept: "application/json" },
-    next: { revalidate: 60 },
-  });
-  if (!res.ok) throw new Error(`Registry API error: ${res.status} ${res.statusText}`);
-  const data = (await res.json()) as { servers?: RegistryItem[] };
-  return (data.servers ?? []).map(extractSummary);
+  const all = await getAllServers();
+  const terms = query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  let results = all.filter((s) => matchesQuery(s, terms));
+
+  if (latestOnly) {
+    // Deduplicate by name, preferring the entry marked isLatest
+    const seen = new Map<string, ServerSummary>();
+    for (const s of results) {
+      const existing = seen.get(s.name);
+      if (!existing || s.isLatest) seen.set(s.name, s);
+    }
+    results = Array.from(seen.values());
+  }
+
+  return results.slice(0, limit);
 }
 
 export async function getServerDetails(name: string): Promise<ServerDetail> {
   const encoded = encodeURIComponent(name);
-  // The registry has no /v0/servers/{name} endpoint — versions list is the detail source
   const res = await fetch(`${REGISTRY_BASE}/servers/${encoded}/versions`, {
     headers: { Accept: "application/json" },
     next: { revalidate: 60 },
