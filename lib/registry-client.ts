@@ -2,45 +2,32 @@ const REGISTRY_BASE = "https://registry.modelcontextprotocol.io/v0";
 
 export interface ServerSummary {
   name: string;
+  title: string;
   description: string;
   endpoint: string | null;
   transport: string | null;
   repository: string | null;
+  version: string | null;
   status: string | null;
+  isLatest: boolean;
+}
+
+export interface ServerVersion {
+  version: string;
+  isLatest: boolean;
+  publishedAt: string;
+  status: string;
+  remotes: Array<{ type: string; url: string }>;
+  packages: Array<{ registry: string; name: string; version: string }>;
+  tools: Array<{ name: string; description: string }>;
 }
 
 export interface ServerDetail {
-  id: string;
   name: string;
+  title: string;
   description: string;
-  created_at: string;
-  updated_at: string;
-  repository: {
-    url: string;
-    source: string;
-    id: string;
-  } | null;
-  versions: Array<{
-    version: string;
-    release_date: string;
-    is_latest: boolean;
-    packages: Array<{
-      registry_name: string;
-      name: string;
-      version: string;
-      package_arguments: unknown[];
-      environment_variables: Array<{
-        name: string;
-        description: string;
-        required: boolean;
-      }>;
-    }>;
-    tools: Array<{
-      name: string;
-      description: string;
-      input_schema: unknown;
-    }>;
-  }>;
+  repository: string | null;
+  versions: ServerVersion[];
 }
 
 export interface ListResult {
@@ -48,30 +35,29 @@ export interface ListResult {
   next_cursor: string | null;
 }
 
-function extractSummary(server: Record<string, unknown>): ServerSummary {
-  const versions = server.versions as Array<Record<string, unknown>> | undefined;
-  const latest = versions?.find(
-    (v) => (v as Record<string, unknown>).is_latest
-  ) ?? versions?.[0];
-  const packages = latest
-    ? (latest.packages as Array<Record<string, unknown>> | undefined) ?? []
-    : [];
-  const firstPkg = packages[0] as Record<string, unknown> | undefined;
+type RegistryItem = {
+  server: Record<string, unknown>;
+  _meta: Record<string, unknown>;
+};
+
+function extractSummary(item: RegistryItem): ServerSummary {
+  const s = item.server;
+  const meta = (
+    (item._meta?.["io.modelcontextprotocol.registry/official"] ?? {}) as Record<string, unknown>
+  );
+  const remotes = (s.remotes as Array<{ type: string; url: string }> | undefined) ?? [];
+  const repo = s.repository as Record<string, unknown> | undefined;
 
   return {
-    name: String(server.name ?? ""),
-    description: String(server.description ?? ""),
-    endpoint: firstPkg
-      ? String(firstPkg.name ?? "")
-      : null,
-    transport: firstPkg
-      ? String(firstPkg.registry_name ?? "")
-      : null,
-    repository:
-      server.repository && typeof server.repository === "object"
-        ? String((server.repository as Record<string, unknown>).url ?? "")
-        : null,
-    status: latest ? String((latest as Record<string, unknown>).version ?? "") : null,
+    name: String(s.name ?? ""),
+    title: String(s.title ?? s.name ?? ""),
+    description: String(s.description ?? ""),
+    endpoint: remotes[0]?.url ?? null,
+    transport: remotes[0]?.type ?? null,
+    repository: repo?.url ? String(repo.url) : null,
+    version: String(s.version ?? ""),
+    status: String(meta.status ?? ""),
+    isLatest: Boolean(meta.isLatest),
   };
 }
 
@@ -89,28 +75,63 @@ export async function searchRegistry(
     headers: { Accept: "application/json" },
     next: { revalidate: 60 },
   });
-  if (!res.ok) {
-    throw new Error(`Registry API error: ${res.status} ${res.statusText}`);
-  }
-  const data = (await res.json()) as {
-    servers?: Array<Record<string, unknown>>;
-  };
+  if (!res.ok) throw new Error(`Registry API error: ${res.status} ${res.statusText}`);
+  const data = (await res.json()) as { servers?: RegistryItem[] };
   return (data.servers ?? []).map(extractSummary);
 }
 
 export async function getServerDetails(name: string): Promise<ServerDetail> {
   const encoded = encodeURIComponent(name);
-  const res = await fetch(`${REGISTRY_BASE}/servers/${encoded}`, {
+  // The registry has no /v0/servers/{name} endpoint — versions list is the detail source
+  const res = await fetch(`${REGISTRY_BASE}/servers/${encoded}/versions`, {
     headers: { Accept: "application/json" },
     next: { revalidate: 60 },
   });
   if (!res.ok) {
-    if (res.status === 404) {
-      throw new Error(`Server not found: ${name}`);
-    }
+    if (res.status === 404) throw new Error(`Server not found: ${name}`);
     throw new Error(`Registry API error: ${res.status} ${res.statusText}`);
   }
-  return res.json() as Promise<ServerDetail>;
+  const data = (await res.json()) as { servers?: RegistryItem[] };
+  const items = data.servers ?? [];
+  if (items.length === 0) throw new Error(`Server not found: ${name}`);
+
+  const first = items[0].server;
+  const repo = first.repository as Record<string, unknown> | undefined;
+
+  const versions: ServerVersion[] = items.map((item) => {
+    const s = item.server;
+    const meta = (
+      (item._meta?.["io.modelcontextprotocol.registry/official"] ?? {}) as Record<string, unknown>
+    );
+    const remotes = (s.remotes as Array<{ type: string; url: string }> | undefined) ?? [];
+    const packages = (s.packages as Array<Record<string, unknown>> | undefined) ?? [];
+    const tools = (s.tools as Array<Record<string, unknown>> | undefined) ?? [];
+
+    return {
+      version: String(s.version ?? ""),
+      isLatest: Boolean(meta.isLatest),
+      publishedAt: String(meta.publishedAt ?? ""),
+      status: String(meta.status ?? ""),
+      remotes,
+      packages: packages.map((p) => ({
+        registry: String(p.registry_name ?? p.registry ?? ""),
+        name: String(p.name ?? ""),
+        version: String(p.version ?? ""),
+      })),
+      tools: tools.map((t) => ({
+        name: String(t.name ?? ""),
+        description: String(t.description ?? ""),
+      })),
+    };
+  });
+
+  return {
+    name: String(first.name ?? ""),
+    title: String(first.title ?? first.name ?? ""),
+    description: String(first.description ?? ""),
+    repository: repo?.url ? String(repo.url) : null,
+    versions,
+  };
 }
 
 export async function listServers(
@@ -127,15 +148,13 @@ export async function listServers(
     headers: { Accept: "application/json" },
     next: { revalidate: 60 },
   });
-  if (!res.ok) {
-    throw new Error(`Registry API error: ${res.status} ${res.statusText}`);
-  }
+  if (!res.ok) throw new Error(`Registry API error: ${res.status} ${res.statusText}`);
   const data = (await res.json()) as {
-    servers?: Array<Record<string, unknown>>;
-    next_cursor?: string | null;
+    servers?: RegistryItem[];
+    metadata?: { nextCursor?: string };
   };
   return {
     servers: (data.servers ?? []).map(extractSummary),
-    next_cursor: data.next_cursor ?? null,
+    next_cursor: data.metadata?.nextCursor ?? null,
   };
 }
