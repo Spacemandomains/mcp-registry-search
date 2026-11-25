@@ -1,5 +1,8 @@
 # MCP Registry Search
 
+> **Looking for the full version? This server is now the free starter edition of [Library](https://github.com/Spacemandomains/Library).**
+> Library searches 25,000+ MCP servers across the Official Registry *and* Glama at once, adds payment-protocol detection (x402 / MPP / prepaid), a checkout tool, and paid x402 endpoints for agents (`POST /api/find` and `POST /api/inspect` at https://librarymcp.vercel.app). This repo stays live and free for Official Registry search only — new development happens in Library.
+
 One connection. Access to every MCP server in the official MCP registry.
 
 **Endpoint:** https://mcpregistrysearchwilfredleejr.vercel.app/api/mcp
